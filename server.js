@@ -9,7 +9,7 @@ const Employee = require('./src/models/Employee');
 const { syncOnce, syncStatus } = require('./src/sync');
 const { startLogClientServer } = require('./src/logclient');
 
-const port = Number(process.env.APP_PORT || 3001);
+const port = Number(process.env.PORT || process.env.APP_PORT || 3001);
 const intervalMs = Number(process.env.SYNC_INTERVAL_MS || 15000);
 const departments = ['Viralstan', 'Vitoxyz', 'Transvera', 'RevnoRCM', 'Elitesbook'];
 const employeeRoles = ['Employee', 'Manager', 'Board Member'];
