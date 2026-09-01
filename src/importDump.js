@@ -1,0 +1,126 @@
+// Imports a raw biometric-device log dump (pulled via USB pendrive) into MongoDB.
+// Expected columns (tab or multi-space separated), one header line then rows:
+//   No  TMNo  EnNo  Name  GMNo  Mode  In/Out  Antipass  ProxyWork  DateTime
+//
+// Usage: node src/importDump.js <path-to-dump-file>
+
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const { connectDB } = require('./db');
+const Attendance = require('./models/Attendance');
+const Employee = require('./models/Employee');
+
+function splitRow(line) {
+  // Real dumps from these devices are tab-separated; fall back to 2+ spaces if no tabs.
+  const cols = line.includes('\t') ? line.split('\t') : line.split(/\s{2,}/);
+  return cols.map((c) => c.trim());
+}
+
+function punchTypeFromInOut(value) {
+  if (value === '1') return 'IN';
+  if (value === '0') return 'OUT';
+  return null; // e.g. "3" (break/other) - kept in `raw`, not forced into IN/OUT
+}
+
+function punchTypeFromMachine(tmNo, inOut) {
+  if (String(tmNo) === '1515') return 'IN';
+  if (String(tmNo) === '1516') return 'OUT';
+  return punchTypeFromInOut(inOut);
+}
+
+function parseDump(filePath) {
+  const buffer = fs.readFileSync(filePath);
+  const text = buffer[0] === 0xff && buffer[1] === 0xfe
+    ? buffer.toString('utf16le').replace(/^\uFEFF/, '')
+    : buffer.toString('utf8').replace(/^\uFEFF/, '');
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+
+  const rows = [];
+  const employees = new Map(); // EnNo -> Name
+
+  for (const line of lines) {
+    const cols = splitRow(line);
+    if (cols.length < 10) continue; // skip header/short/garbage lines
+    const [no, tmNo, enNo, name, gmNo, mode, inOut, antipass, proxyWork, dateTime] = cols;
+    if (!/^\d+$/.test(no)) continue; // header row starts with "No" not a number
+    if (!enNo || !dateTime) continue;
+
+    const recordTime = new Date(dateTime.replace(' ', 'T'));
+    if (Number.isNaN(recordTime.getTime())) continue;
+
+    if (name && !employees.has(enNo)) employees.set(enNo, name);
+
+    rows.push({
+      deviceUserId: enNo,
+      recordTime,
+      // These two dedicated machines export "1" in the In/Out column on both
+      // sides, so their machine number is the reliable direction indicator.
+      punchType: punchTypeFromMachine(tmNo, inOut),
+      deviceIp: `TM-${tmNo}`,
+      raw: { no, tmNo, enNo, name, gmNo, mode, inOut, antipass, proxyWork, dateTime },
+    });
+  }
+
+  return { rows, employees };
+}
+
+async function importDump(filePath) {
+  const { rows, employees } = parseDump(filePath);
+  console.log(`[import] parsed ${rows.length} log row(s), ${employees.size} unique EnNo(s)`);
+
+  if (!rows.length) {
+    console.log('[import] nothing to import - check the file format/path');
+    return { inserted: 0, skipped: 0, employeesUpserted: 0 };
+  }
+
+  await connectDB();
+
+  const employeeOps = [...employees.entries()].map(([enNo, name]) => ({
+    updateOne: {
+      filter: { deviceUserId: enNo },
+      update: { $set: { name }, $setOnInsert: { deviceUserId: enNo } },
+      upsert: true,
+    },
+  }));
+  const empResult = employeeOps.length
+    ? await Employee.bulkWrite(employeeOps, { ordered: false })
+    : { upsertedCount: 0, modifiedCount: 0 };
+
+  const attendanceOps = rows.map((row) => ({
+    updateOne: {
+      filter: {
+        deviceUserId: row.deviceUserId,
+        recordTime: row.recordTime,
+        punchType: row.punchType,
+      },
+      update: { $setOnInsert: row },
+      upsert: true,
+    },
+  }));
+
+  const result = await Attendance.bulkWrite(attendanceOps, { ordered: false });
+  const inserted = result.upsertedCount || 0;
+  const skipped = rows.length - inserted;
+
+  console.log(`[import] employees: ${empResult.upsertedCount || 0} new, ${empResult.modifiedCount || 0} updated`);
+  console.log(`[import] attendance: ${inserted} new record(s) inserted, ${skipped} duplicate(s) skipped`);
+
+  return { inserted, skipped, employeesUpserted: employeeOps.length };
+}
+
+if (require.main === module) {
+  const filePath = process.argv[2];
+  if (!filePath) {
+    console.error('Usage: node src/importDump.js <path-to-dump-file>');
+    process.exit(1);
+  }
+  importDump(path.resolve(filePath))
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error('[import] failed:', err);
+      process.exit(1);
+    });
+}
+
+module.exports = { importDump, parseDump, punchTypeFromMachine };

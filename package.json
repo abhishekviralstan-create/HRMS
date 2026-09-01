@@ -1,0 +1,19 @@
+{
+  "name": "fingerprint-sync",
+  "version": "1.0.0",
+  "description": "Pulls attendance/user logs from a ZKTeco-protocol biometric device over LAN and syncs them into MongoDB.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "sync": "node index.js",
+    "watch": "node index.js --watch",
+    "test-connection": "node test-connection.js",
+    "test-logclient": "node test-logclient.js",
+    "import-dump": "node src/importDump.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "mongoose": "^8.5.0",
+    "node-zklib": "^1.0.10"
+  }
+}
