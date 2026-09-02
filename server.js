@@ -37,7 +37,12 @@ function tokenDigest(token) {
 }
 
 async function ensureLoginUser() {
-  if (!loginEmail || !loginPassword) throw new Error('LOGIN_EMAIL and LOGIN_PASSWORD must be set in .env');
+  if (!loginEmail || !loginPassword) {
+    const existingAdmin = await User.findOne({ role: 'admin', active: true }).lean();
+    if (!existingAdmin) throw new Error('No active administrator exists in MongoDB. Set LOGIN_EMAIL and LOGIN_PASSWORD once to create it.');
+    console.log(`[auth] using MongoDB administrator: ${existingAdmin.email}`);
+    return existingAdmin;
+  }
   let user = await User.findOne({ email: loginEmail }).select('+passwordHash +passwordSalt');
   if (user && passwordMatches(loginPassword, user.passwordSalt, user.passwordHash)) return user;
   const passwordSalt = crypto.randomBytes(16).toString('hex');
@@ -274,7 +279,6 @@ const server = http.createServer(async (req, res) => {
       return res.end(fs.readFileSync(path.join(__dirname, 'public', 'login.html'), 'utf8'));
     }
     if (req.method === 'POST' && url.pathname === '/api/login') {
-      if (!loginEmail || !loginPassword) return json(res, 503, { error: 'Login is not configured' });
       const clientKey = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
       const attempt = loginAttempts.get(clientKey);
       if (attempt?.blockedUntil > Date.now()) return json(res, 429, { error: 'Too many attempts. Please try again later.' });
