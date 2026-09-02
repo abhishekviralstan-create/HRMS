@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Attendance System</title><style>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Attendance System</title><style>
 *{box-sizing:border-box}
 body{margin:0;background:#f4f7fb;color:#172033;font:14px/1.5 Inter,system-ui,Segoe UI,sans-serif}
 .topbar{background:#fff;border-bottom:1px solid #e3e9f2;padding:15px 28px 15px 268px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:sticky;top:0;z-index:20}
@@ -60,11 +60,11 @@ body{background:#f5f7f8;color:#17212b}.sidebar{display:block;transform:translate
 body[data-sky="morning"] .welcome-hero{background:linear-gradient(160deg,#fff 15%,#f1fcff 100%)}body[data-sky="afternoon"] .welcome-hero{background:linear-gradient(160deg,#fff 12%,#e9f9ff 100%)}body[data-sky="afternoon"] .city:before{background:#ffc928;box-shadow:0 0 0 18px #fff1a8,0 0 0 34px #fff7d3}body[data-sky="evening"] .welcome-hero{background:linear-gradient(145deg,#fff8f3 5%,#ffe5d9 55%,#ddedff 100%)}body[data-sky="evening"] .city:before{background:#ff9254;box-shadow:0 0 0 17px #ffd3a8aa,0 0 0 32px #ffe9ce88}body[data-sky="evening"] .city b{background-color:#6bbcd2}body[data-sky="night"] .welcome-hero{background:linear-gradient(145deg,#172a46,#254d70 58%,#426e89);color:#fff}body[data-sky="night"] .welcome-copy small,body[data-sky="night"] .welcome-copy p{color:#d8edf7}body[data-sky="night"] .city:before{background:#f8f3d6;box-shadow:inset -14px 2px 0 #d8e5ee,0 0 0 14px #eef8ff22,0 0 35px #dff5ff88}body[data-sky="night"] .sky-cloud{background:#b8d3e044;opacity:.55}body[data-sky="night"] .city b{background-color:#285d7d;background-image:repeating-linear-gradient(90deg,transparent 0 14px,#ffe887 14px 18px)}body[data-sky="night"] .city i{background-color:#123f63;background-image:repeating-linear-gradient(90deg,transparent 0 15px,#ffd968 15px 18px)}body[data-sky="night"] .hero-time{background:#102f4aaa;border-color:#6689a2;color:#eaf8ff}body[data-sky="night"] .hero-time:before{background:#ffe275;box-shadow:0 0 0 4px #ffe27522}@media(prefers-reduced-motion:reduce){.sky-cloud,.city:before,.city b,.city i{animation:none!important}}
 </style></head><body>
 
-<aside class="sidebar" id="appSidebar"><div class="sidebrand">AttendCRM<small>WORKFORCE CONTROL</small></div><a class="navitem" data-nav="overview" href="/overview"><span>◫</span>Overview</a><a class="navitem" data-nav="attendance" href="/attendance"><span>⌕</span>Attendance Reports</a><a class="navitem" data-nav="punches" href="/punches"><span>↔</span>Punch Ledger</a><a class="navitem" data-nav="profiles" href="/profiles"><span>▣</span>Employee Profiles</a><a class="navitem" data-nav="employees" href="/employees"><span>♙</span>Employee Management</a><a class="navitem" data-nav="salary" href="/salary"><span>₹</span>Salary Management</a><a class="navitem" data-nav="monthly-attendance" href="/monthly-attendance"><span>◔</span>Monthly Attendance</a><a class="navitem" href="/live" target="_blank" rel="noopener"><span>▤</span>HRMS Live View</a></aside><div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="sidebar" id="appSidebar"><div class="sidebrand">AttendCRM<small>WORKFORCE CONTROL</small></div><a class="navitem" data-nav="overview" href="/overview"><span>◫</span>Overview</a><a class="navitem" data-nav="attendance" href="/attendance"><span>⌕</span>Attendance Reports</a><a class="navitem" data-nav="punches" href="/punches"><span>↔</span>Punch Ledger</a><a class="navitem" data-nav="profiles" href="/profiles"><span>▣</span>Employee Profiles</a><a class="navitem" data-nav="employees" href="/employees"><span>♙</span>Employee Management</a><a class="navitem" data-nav="salary" href="/salary"><span>₹</span>Salary Management</a><a class="navitem" data-nav="monthly-attendance" href="/monthly-attendance"><span>◔</span>Monthly Attendance</a></aside><div class="drawer-backdrop" id="drawerBackdrop"></div>
 
 <div class="topbar">
   <div class="brand"><button class="menu-toggle" id="menuToggle" type="button" title="Open menu" aria-label="Open navigation" aria-expanded="false">⠿</button><span class="dot"></span> Attendance System</div>
-  <div id="status" class="statuspill">Loading...</div>
+  <div style="display:flex;align-items:center;gap:10px"><div id="status" class="statuspill">Loading...</div><button class="secondary smallbtn" type="button" onclick="logout()">Logout</button></div>
 </div>
 
 <main class="wrap" id="overview">
@@ -126,17 +126,19 @@ body[data-sky="morning"] .welcome-hero{background:linear-gradient(160deg,#fff 15
 <div class="filters">
   <label>From <input id="from" type="date"></label>
   <label>To <input id="to" type="date"></label>
-  <label>Name / ID <input id="employee" list="employeeIds" placeholder="Name or enrollment ID"></label>
-  <button onclick="loadHistory()">Search employee</button>
-  <button class="secondary" onclick="downloadCsv()">Download CSV</button>
+  <label>Employee <select id="employee"><option value="">All employees</option></select></label>
+  <button onclick="loadHistory()">Show attendance</button>
+  <button class="secondary" onclick="downloadAttendanceCsv()">Download Attendance CSV</button>
 </div>
 </section>
 <section class="cards" id="searchCards"><div class="card"><span class="label">Selected Range Days</span><b id="rangeDays">0</b></div><div class="card in"><span class="label">Present Days</span><b id="presentDays">0</b></div><div class="card out"><span class="label">Absent Days</span><b id="absentDays">0</b></div><div class="card"><span class="label">Total Time Inside</span><b id="rangeHours">0h</b></div></section>
 <div class="tablebox"><table><thead><tr><th>Date</th><th>Employee / Enrollment ID</th><th>First In</th><th>Last Out</th><th>Total Time Inside</th><th>Matched Sessions</th><th>Attendance</th></tr></thead><tbody id="summaryRows"></tbody></table></div>
-<div class="note">Daily total = har matched 1515 IN → 1516 OUT session ka sum. Selected range mein punch na ho to ABSENT dikhega.</div>
+<h2>Attendance Register</h2>
+<div class="tablebox"><table><thead id="matrixHead"></thead><tbody id="matrixRows"></tbody></table></div>
+<div class="note"><b>Night-shift rule:</b> afternoon/night IN ke baad midnight cross karke next day ka OUT usi shift-start date mein count hota hai. Daily total har matched 1515 IN → 1516 OUT session ka sum hai; punch na ho to ABSENT dikhega.</div>
 </section>
 
-<section class="app-page" data-page="punches"><h1>Punch Ledger</h1><div class="muted">Raw IN/OUT punches with machine and verification evidence.</div><div class="filters"><label>From <input id="punchFrom" type="date"></label><label>To <input id="punchTo" type="date"></label><label>Name / ID <input id="punchEmployee" list="employeeIds" placeholder="All employees"></label><button onclick="loadPunchPage()">Show punches</button><button class="secondary" onclick="downloadCsv()">Download CSV</button></div>
+<section class="app-page" data-page="punches"><h1>Punch Ledger</h1><div class="muted">Raw IN/OUT punches with machine and verification evidence.</div><div class="filters"><label>From <input id="punchFrom" type="date"></label><label>To <input id="punchTo" type="date"></label><label>Employee <select id="punchEmployee"><option value="">All employees</option></select></label><button onclick="loadPunchPage()">Show punches</button><button class="secondary" onclick="downloadPunchCsv()">Download Raw Punch CSV</button></div>
 <div class="tablebox" id="punchLedger"><table><thead><tr><th>Date</th><th>Time</th><th>Employee</th><th>Direction</th><th>Verification Method</th><th>Face Evidence</th><th>Machine</th><th>Transaction ID</th></tr></thead><tbody id="historyRows"></tbody></table></div>
 <div class="note" id="historyCount"></div>
 </section>
@@ -192,7 +194,7 @@ const modeCode=p=>String(p&&p.raw?(p.raw.verificationMode??p.raw.mode??''):'').t
 const method=p=>{const code=modeCode(p),labels={'1':'Fingerprint','3':'Password / PIN','15':'Face','30':'Face'};return code?(labels[code]||'Device verification')+' / Mode '+code:'Not supplied'};
 const faceEvidence=p=>{const code=modeCode(p),photo=p&&p.raw&&p.raw.photo;return photo?'Face snapshot received':(code==='15'||code==='30')?'Face verified / No snapshot':'—'};
 const nameCell=(name,id)=>'<span class="name">'+esc(name||id)+'</span>'+(name?'<span class="subid">#'+esc(id)+'</span>':'');
-let historyData=[],employeesData=[],editingEmployeeId=null,viewedEmployee=null,revealSensitive=false,departments=[],employeeRoles=[];
+let historyData=[],historySummaries=[],employeesData=[],editingEmployeeId=null,viewedEmployee=null,revealSensitive=false,departments=[],employeeRoles=[];
 const currentPage=location.pathname==='/'?'overview':location.pathname.slice(1);
 document.querySelectorAll('.app-page').forEach(el=>el.classList.toggle('active',el.dataset.page===currentPage));
 document.querySelectorAll('[data-nav]').forEach(el=>el.classList.toggle('active',el.dataset.nav===currentPage));
@@ -242,13 +244,14 @@ async function load(){
 }
 
 async function loadHistory(){
+  if(byId('from').value>byId('to').value)return alert('From date, To date se pehle honi chahiye');
   const q=new URLSearchParams({from:byId('from').value,to:byId('to').value});
   if(byId('employee').value.trim())q.set('employee',byId('employee').value.trim());
   const r=await fetch('/api/history?'+q).then(x=>x.json());
   historyData=r.records||[];
-  const summaries=r.summaries||[];
-  const absent=summaries.filter(e=>e.absent).length,present=summaries.length-absent,totalMs=summaries.reduce((sum,e)=>sum+(e.insideMs||0),0);
-  byId('rangeDays').textContent=summaries.length;byId('presentDays').textContent=present;byId('absentDays').textContent=absent;byId('rangeHours').textContent=duration(totalMs);
+  const summaries=r.summaries||[];historySummaries=summaries;
+  const matrix=attendanceMatrix(),entries=matrix.rows.flatMap(row=>row.entries),present=entries.filter(e=>e&&!e.absent).length,absent=entries.length-present,totalMs=summaries.reduce((sum,e)=>sum+(e.insideMs||0),0);
+  byId('rangeDays').textContent=matrix.dates.length;byId('presentDays').textContent=present;byId('absentDays').textContent=absent;byId('rangeHours').textContent=duration(totalMs);
   byId('historyCount').textContent='Total '+historyData.length+' records';
   byId('summaryRows').innerHTML=summaries.length?summaries.map(e=>
     '<tr><td>'+esc(e.date)+'</td><td>'+nameCell(e.employeeName,e.deviceUserId)+'</td><td>'+time(e.firstIn)+'</td><td>'+time(e.lastOut)+'</td><td class="'+(e.absent?'warn':'good')+'">'+(e.absent?'0h 0m':duration(e.insideMs))+'</td><td>'+(e.absent?'—':(e.sessions||[]).map(s=>time(s.in)+' → '+time(s.out)+' ('+duration(s.durationMs)+')').join('<br>')||'Unmatched punch')+'</td><td><span class="pill '+(e.absent?'ABSENT':e.hasIncompletePunch?'INSIDE':'OUTSIDE')+'">'+(e.absent?'ABSENT':e.hasIncompletePunch?'INCOMPLETE':'PRESENT')+'</span></td></tr>'
@@ -257,6 +260,7 @@ async function loadHistory(){
     const d=new Date(p.recordTime);
     return '<tr><td>'+d.toLocaleDateString('en-IN')+'</td><td>'+time(p.recordTime)+'</td><td>'+nameCell(p.employeeName,p.deviceUserId)+'</td><td><span class="pill '+esc(p.punchType)+'">'+esc(p.punchType)+'</span></td><td>'+esc(method(p))+'</td><td>'+esc(faceEvidence(p))+'</td><td>'+esc(p.deviceIp)+'</td><td>'+esc(p.raw&&p.raw.transactionId||'—')+'</td></tr>';
   }).join(''):'<tr><td colspan="8" class="empty">No records found for this range.</td></tr>';
+  renderAttendanceMatrix();
 }
 
 async function loadPunchPage(){
@@ -264,7 +268,7 @@ async function loadPunchPage(){
   await loadHistory();
 }
 
-function downloadCsv(){
+function downloadPunchCsv(){
   if(!historyData.length)return alert('Click "Show data" first');
   const cell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
   const lines=[['Date','Time','Employee ID','Employee Name','Direction','Method','Device','Transaction ID'].map(cell).join(',')];
@@ -279,11 +283,39 @@ function downloadCsv(){
   URL.revokeObjectURL(a.href);
 }
 
+function dateRange(from,to){const dates=[];if(!from||!to)return dates;const end=new Date(to+'T00:00:00');for(let day=new Date(from+'T00:00:00');day<=end;day.setDate(day.getDate()+1))dates.push(dateText(day));return dates}
+function attendanceCell(entry){return attendanceHoursCell(entry)}
+function workedHours(ms){const totalMinutes=Math.max(0,Math.floor((ms||0)/60000)),hours=Math.floor(totalMinutes/60),minutes=totalMinutes%60;return hours+'h '+String(minutes).padStart(2,'0')+'m'}
+function attendanceHoursCell(entry){if(!entry||entry.absent)return 'ABSENT';if(!(entry.sessions||[]).length)return 'INCOMPLETE';return workedHours(entry.insideMs)}
+function attendanceMatrix(){
+  const dates=dateRange(byId('from').value,byId('to').value),selected=byId('employee').value;
+  const source=(selected?employeesData.filter(e=>e.deviceUserId===selected):employeesData).slice();
+  const summaryMap=new Map(historySummaries.map(e=>[e.deviceUserId+'|'+e.date,e]));
+  const seenIds=new Set(source.map(e=>e.deviceUserId));
+  historySummaries.forEach(e=>{if(!seenIds.has(e.deviceUserId)){source.push({deviceUserId:e.deviceUserId,name:e.employeeName||e.deviceUserId});seenIds.add(e.deviceUserId)}});
+  return {dates,rows:source.map(employee=>({employee,entries:dates.map(date=>summaryMap.get(employee.deviceUserId+'|'+date)||null)}))};
+}
+function renderAttendanceMatrix(){
+  const matrix=attendanceMatrix();
+  byId('matrixHead').innerHTML='<tr><th>Employee</th><th>Enrollment ID</th>'+matrix.dates.map(date=>'<th>'+esc(date)+'</th>').join('')+'</tr>';
+  byId('matrixRows').innerHTML=matrix.rows.length?matrix.rows.map(row=>'<tr><td class="name">'+esc(row.employee.name||row.employee.deviceUserId)+'</td><td>'+esc(row.employee.deviceUserId)+'</td>'+row.entries.map(entry=>'<td class="'+(!entry||entry.absent?'warn':'good')+'">'+esc(attendanceCell(entry))+'</td>').join('')+'</tr>').join(''):'<tr><td class="empty" colspan="'+(matrix.dates.length+2)+'">No employee found.</td></tr>';
+}
+function downloadAttendanceCsv(){
+  const matrix=attendanceMatrix();if(!matrix.rows.length)return alert('Pehle employee/date range select karke Show attendance karein');
+  const cell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const lines=[['Employee Name','Enrollment ID',...matrix.dates,'Present Days','Grand Total Hours'].map(cell).join(',')];
+  matrix.rows.forEach(row=>{const present=row.entries.filter(entry=>entry&&!entry.absent).length,totalMs=row.entries.reduce((sum,entry)=>sum+(entry?.insideMs||0),0);lines.push([row.employee.name||row.employee.deviceUserId,row.employee.deviceUserId,...row.entries.map(attendanceHoursCell),present,workedHours(totalMs)].map(cell).join(','))});
+  const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);const selected=byId('employee').value;a.download='attendance-hours-only-'+(selected?selected+'-':'')+byId('from').value+'-to-'+byId('to').value+'.csv';a.click();URL.revokeObjectURL(a.href);
+}
+
 async function loadEmployees(){
   const r=await fetch('/api/employees').then(x=>x.json());
   const employees=r.employees||[];employeesData=employees;departments=r.departments||[];employeeRoles=r.employeeRoles||[];
   byId('empDept').innerHTML='<option value="">Select department</option>'+departments.map(d=>'<option>'+esc(d)+'</option>').join('');
   byId('employeeIds').innerHTML=employees.flatMap(e=>['<option value="'+esc(e.deviceUserId)+'">'+esc(e.name)+'</option>','<option value="'+esc(e.name)+'">#'+esc(e.deviceUserId)+'</option>']).join('');
+  const employeeOptions='<option value="">All employees</option>'+employees.map(e=>'<option value="'+esc(e.deviceUserId)+'">'+esc(e.name)+' (#'+esc(e.deviceUserId)+')</option>').join('');
+  const selectedAttendance=byId('employee').value,selectedPunch=byId('punchEmployee').value;
+  byId('employee').innerHTML=employeeOptions;byId('punchEmployee').innerHTML=employeeOptions;byId('employee').value=selectedAttendance;byId('punchEmployee').value=selectedPunch;
   const unnamed=r.unnamedIds||[];
   byId('unnamedId').innerHTML='<option value="">Unnamed IDs ('+unnamed.length+')</option>'+unnamed.map(id=>'<option value="'+esc(id)+'">'+esc(id)+'</option>').join('');
   byId('empRows').innerHTML=employees.length?employees.map(e=>
@@ -370,9 +402,11 @@ async function init(){
   const today=dateText();
   byId('date').value=today;byId('from').value=today;byId('to').value=today;byId('punchFrom').value=today;byId('punchTo').value=today;
   byId('qMonth').value=today.slice(0,7);
-  await Promise.all([loadDashboard(),load(),loadHistory(),loadEmployees(),loadMonthlySummary()]);
+  await loadEmployees();
+  await Promise.all([loadDashboard(),load(),loadHistory(),loadMonthlySummary()]);
   setInterval(()=>{loadDashboard();load();loadHistory()},5000);
 }
+async function logout(){await fetch('/api/logout',{method:'POST'});location.href='/login'}
 init();
 </script>
 </body></html>

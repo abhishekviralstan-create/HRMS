@@ -2,10 +2,13 @@ require('dotenv').config();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { URL } = require('url');
 const { connectDB } = require('./src/db');
 const Attendance = require('./src/models/Attendance');
 const Employee = require('./src/models/Employee');
+const User = require('./src/models/User');
+const AuthSession = require('./src/models/AuthSession');
 const { syncOnce, syncStatus } = require('./src/sync');
 const { startLogClientServer } = require('./src/logclient');
 
@@ -14,6 +17,67 @@ const intervalMs = Number(process.env.SYNC_INTERVAL_MS || 15000);
 const departments = ['Viralstan', 'Vitoxyz', 'Transvera', 'RevnoRCM', 'Elitesbook'];
 const employeeRoles = ['Employee', 'Manager', 'Board Member'];
 const employeeFields = ['name', 'phone', 'alternatePhone', 'department', 'role', 'employeeCode', 'joiningDate', 'dateOfBirth', 'gender', 'employmentType', 'alias', 'workEmail', 'personalEmail', 'pan', 'maritalStatus', 'bloodGroup', 'fatherName', 'motherName', 'bankAccount', 'ifsc', 'accountType', 'bankName', 'bankBranch', 'accountHolder', 'aadhaar', 'emergencyPhone', 'nationality', 'designation', 'location', 'team', 'shift', 'monthlySalary', 'salaryEffectiveFrom', 'salaryNotes', 'active'];
+const loginEmail = String(process.env.LOGIN_EMAIL || '').trim().toLowerCase();
+const loginPassword = String(process.env.LOGIN_PASSWORD || '');
+const sessionTtlMs = Number(process.env.SESSION_TTL_MS || 12 * 60 * 60 * 1000);
+const loginAttempts = new Map();
+
+function passwordDigest(password, salt) {
+  return crypto.scryptSync(String(password), salt, 64).toString('hex');
+}
+
+function passwordMatches(password, salt, expectedHash) {
+  const actual = Buffer.from(passwordDigest(password, salt), 'hex');
+  const expected = Buffer.from(expectedHash, 'hex');
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+
+function tokenDigest(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+async function ensureLoginUser() {
+  if (!loginEmail || !loginPassword) throw new Error('LOGIN_EMAIL and LOGIN_PASSWORD must be set in .env');
+  let user = await User.findOne({ email: loginEmail }).select('+passwordHash +passwordSalt');
+  if (user && passwordMatches(loginPassword, user.passwordSalt, user.passwordHash)) return user;
+  const passwordSalt = crypto.randomBytes(16).toString('hex');
+  const passwordHash = passwordDigest(loginPassword, passwordSalt);
+  user = await User.findOneAndUpdate(
+    { email: loginEmail },
+    { email: loginEmail, passwordSalt, passwordHash, active: true, role: 'admin' },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  console.log(`[auth] administrator account saved in MongoDB: ${loginEmail}`);
+  return user;
+}
+
+function cookieValue(req, name) {
+  const cookies = String(req.headers.cookie || '').split(';');
+  for (const cookie of cookies) {
+    const separator = cookie.indexOf('=');
+    if (separator < 0) continue;
+    if (cookie.slice(0, separator).trim() === name) return decodeURIComponent(cookie.slice(separator + 1).trim());
+  }
+  return '';
+}
+
+async function authenticated(req) {
+  const token = cookieValue(req, 'attendance_session');
+  if (!token) return false;
+  const session = await AuthSession.findOne({ tokenHash: tokenDigest(token), expiresAt: { $gt: new Date() } }).lean();
+  if (!session) return false;
+  return true;
+}
+
+function sessionCookie(req, token, maxAgeSeconds) {
+  const secure = req.socket.encrypted || String(req.headers['x-forwarded-proto']).toLowerCase() === 'https';
+  return `attendance_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAgeSeconds}${secure ? '; Secure' : ''}`;
+}
+
+function redirect(res, location) {
+  res.writeHead(302, { location, 'cache-control': 'no-store' });
+  res.end();
+}
 
 function employeeUpdate(body) {
   const update = {};
@@ -146,15 +210,42 @@ function localDateKey(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function buildRangeSummary(records, fromText, toText, selectedEmployee) {
-  const groups = new Map();
+// Attribute OUT punches to the date on which their corresponding shift began.
+// This keeps an afternoon/night IN and its after-midnight OUT in one workday.
+// A 20-hour safety limit prevents a stale, unmatched IN from capturing later OUTs.
+function attendanceDateGroups(records) {
+  const byUser = new Map();
   for (const record of records) {
-    const date = localDateKey(record.recordTime);
-    if (!groups.has(date)) groups.set(date, []);
-    groups.get(date).push(record);
+    if (!byUser.has(record.deviceUserId)) byUser.set(record.deviceUserId, []);
+    byUser.get(record.deviceUserId).push(record);
   }
+  const groups = new Map();
+  for (const punches of byUser.values()) {
+    punches.sort((a, b) => new Date(a.recordTime) - new Date(b.recordTime));
+    let activeIn = null;
+    let activeDate = null;
+    for (const punch of punches) {
+      const punchTime = new Date(punch.recordTime);
+      let date = localDateKey(punchTime);
+      if (punch.punchType === 'IN') {
+        activeIn = punchTime;
+        activeDate = date;
+      } else if (punch.punchType === 'OUT' && activeIn) {
+        const elapsed = punchTime - activeIn;
+        if (elapsed >= 0 && elapsed <= 20 * 60 * 60 * 1000) date = activeDate;
+        else { activeIn = null; activeDate = null; }
+      }
+      if (!groups.has(date)) groups.set(date, []);
+      groups.get(date).push(punch);
+    }
+  }
+  return groups;
+}
+
+function buildRangeSummary(records, fromText, toText, selectedEmployee) {
+  const groups = attendanceDateGroups(records);
   const now = new Date();
-  const result = [...groups.entries()].flatMap(([date, dayRecords]) => {
+  const result = [...groups.entries()].filter(([date]) => date >= fromText && date <= toText).flatMap(([date, dayRecords]) => {
     const [year, month, day] = date.split('-').map(Number);
     const end = new Date(year, month - 1, day + 1);
     const start = new Date(year, month - 1, day);
@@ -177,8 +268,44 @@ const server = http.createServer(async (req, res) => {
   const safePath = String(req.url || '/').replace(/^\/{2,}/, '/');
   const url = new URL(safePath, `http://${req.headers.host || 'localhost'}`);
   try {
+    if (req.method === 'GET' && url.pathname === '/login') {
+      if (await authenticated(req)) return redirect(res, '/overview');
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, 'public', 'login.html'), 'utf8'));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/login') {
+      if (!loginEmail || !loginPassword) return json(res, 503, { error: 'Login is not configured' });
+      const clientKey = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+      const attempt = loginAttempts.get(clientKey);
+      if (attempt?.blockedUntil > Date.now()) return json(res, 429, { error: 'Too many attempts. Please try again later.' });
+      const body = await readBody(req);
+      const email = String(body.email || '').trim().toLowerCase();
+      const user = await User.findOne({ email, active: true }).select('+passwordHash +passwordSalt');
+      const valid = Boolean(user && passwordMatches(body.password || '', user.passwordSalt, user.passwordHash));
+      if (!valid) {
+        const failures = (attempt?.failures || 0) + 1;
+        loginAttempts.set(clientKey, { failures: failures >= 5 ? 0 : failures, blockedUntil: failures >= 5 ? Date.now() + 15 * 60 * 1000 : 0 });
+        return json(res, 401, { error: 'Invalid email or password' });
+      }
+      loginAttempts.delete(clientKey);
+      const token = crypto.randomBytes(32).toString('hex');
+      await AuthSession.create({ userId: user._id, tokenHash: tokenDigest(token), expiresAt: new Date(Date.now() + sessionTtlMs) });
+      await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
+      res.setHeader('set-cookie', sessionCookie(req, token, Math.floor(sessionTtlMs / 1000)));
+      return json(res, 200, { ok: true });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/logout') {
+      const token = cookieValue(req, 'attendance_session');
+      if (token) await AuthSession.deleteOne({ tokenHash: tokenDigest(token) });
+      res.setHeader('set-cookie', sessionCookie(req, '', 0));
+      return json(res, 200, { ok: true });
+    }
+    if (!await authenticated(req)) {
+      if (url.pathname.startsWith('/api/')) return json(res, 401, { error: 'Authentication required' });
+      return redirect(res, '/login');
+    }
     if (req.method === 'GET' && ['/', '/overview', '/attendance', '/punches', '/employees', '/profiles', '/salary', '/monthly-attendance'].includes(url.pathname)) {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate' });
       return res.end(fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8'));
     }
     if (req.method === 'GET' && (url.pathname === '/live' || url.pathname === '/live/' || url.pathname.startsWith('/live/'))) {
@@ -255,17 +382,12 @@ const server = http.createServer(async (req, res) => {
       if (!/^\d{4}-\d{2}$/.test(monthStr)) return json(res, 400, { error: 'Invalid month' });
       const { start, end, days, year, month } = monthRangeLocal(monthStr);
       const [records, employees] = await Promise.all([
-        Attendance.find({ recordTime: { $gte: start, $lt: end } }).sort({ recordTime: 1 }).lean(),
+        Attendance.find({ recordTime: { $gte: new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1), $lt: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1) } }).sort({ recordTime: 1 }).lean(),
         Employee.find().sort({ deviceUserId: 1 }).lean(),
       ]);
       const nameMap = new Map(employees.map((employee) => [employee.deviceUserId, employee.name]));
       const named = withNames(records, nameMap);
-      const byDate = new Map();
-      for (const record of named) {
-        const key = localDateKey(record.recordTime);
-        if (!byDate.has(key)) byDate.set(key, []);
-        byDate.get(key).push(record);
-      }
+      const byDate = attendanceDateGroups(named);
       const now = new Date();
       const todayKey = localDateKey(now);
       const perEmployee = new Map();
@@ -313,15 +435,10 @@ const server = http.createServer(async (req, res) => {
       const { start, end, days, year, month } = monthRangeLocal(monthStr);
       const [employee, records] = await Promise.all([
         Employee.findOne({ deviceUserId }).lean(),
-        Attendance.find({ deviceUserId, recordTime: { $gte: start, $lt: end } }).sort({ recordTime: 1 }).lean(),
+        Attendance.find({ deviceUserId, recordTime: { $gte: new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1), $lt: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1) } }).sort({ recordTime: 1 }).lean(),
       ]);
       if (!employee) return json(res, 404, { error: 'Employee not found' });
-      const byDate = new Map();
-      for (const record of records) {
-        const key = localDateKey(record.recordTime);
-        if (!byDate.has(key)) byDate.set(key, []);
-        byDate.get(key).push(record);
-      }
+      const byDate = attendanceDateGroups(records);
       const now = new Date();
       const todayKey = localDateKey(now);
       const dayList = [];
@@ -380,17 +497,20 @@ const server = http.createServer(async (req, res) => {
       const [year, month, day] = requested.split('-').map(Number);
       const start = new Date(year, month - 1, day);
       const end = new Date(year, month - 1, day + 1);
+      const contextStart = new Date(year, month - 1, day - 1);
+      const contextEnd = new Date(year, month - 1, day + 2);
       const now = new Date();
       const effectiveEnd = now >= start && now < end ? now : end;
       const employee = url.searchParams.get('employee');
       const employeeId = await resolveEnrollmentId(employee);
-      const reportQuery = { recordTime: { $gte: start, $lt: end } };
+      const reportQuery = { recordTime: { $gte: contextStart, $lt: contextEnd } };
       if (employeeId) reportQuery.deviceUserId = employeeId;
       const [records, nameMap] = await Promise.all([
         Attendance.find(reportQuery).sort({ recordTime: 1 }).lean(),
         employeeNameMap(),
       ]);
-      const employees = buildDailyReport(withNames(records, nameMap), effectiveEnd);
+      const requestedRecords = attendanceDateGroups(withNames(records, nameMap)).get(requested) || [];
+      const employees = buildDailyReport(requestedRecords, effectiveEnd);
       return json(res, 200, {
         date: requested,
         employees,
@@ -398,7 +518,7 @@ const server = http.createServer(async (req, res) => {
           employees: employees.length,
           insideNow: employees.filter((employee) => employee.currentStatus === 'INSIDE').length,
           outsideNow: employees.filter((employee) => employee.currentStatus === 'OUTSIDE').length,
-          punches: records.length,
+          punches: requestedRecords.length,
         },
       });
     }
@@ -414,21 +534,24 @@ const server = http.createServer(async (req, res) => {
         return new Date(year, month - 1, day + (nextDay ? 1 : 0));
       };
       const employeeId = await resolveEnrollmentId(employee);
-      const query = { recordTime: { $gte: localDate(fromText), $lt: localDate(toText, true) } };
+      const rawStart = localDate(fromText);
+      const rawEnd = localDate(toText, true);
+      const query = { recordTime: { $gte: new Date(rawStart.getFullYear(), rawStart.getMonth(), rawStart.getDate() - 1), $lt: new Date(rawEnd.getFullYear(), rawEnd.getMonth(), rawEnd.getDate() + 1) } };
       if (employeeId) query.deviceUserId = employeeId;
       const [records, nameMap] = await Promise.all([
         Attendance.find(query).sort({ recordTime: -1 }).limit(100000).lean(),
         employeeNameMap(),
       ]);
-      const namedRecords = withNames(records, nameMap);
+      const contextRecords = withNames(records, nameMap);
+      const namedRecords = contextRecords.filter((record) => new Date(record.recordTime) >= rawStart && new Date(record.recordTime) < rawEnd);
       const selectedEmployee = employeeId && employeeId !== '__NOT_FOUND__'
         ? { deviceUserId: employeeId, name: nameMap.get(employeeId) || null }
         : null;
       return json(res, 200, {
         from: fromText,
         to: toText,
-        count: records.length,
-        summaries: buildRangeSummary(namedRecords, fromText, toText, selectedEmployee),
+        count: namedRecords.length,
+        summaries: buildRangeSummary(contextRecords, fromText, toText, selectedEmployee),
         records: namedRecords,
       });
     }
@@ -445,6 +568,7 @@ const server = http.createServer(async (req, res) => {
 
 async function main() {
   await connectDB();
+  await ensureLoginUser();
   await new Promise((resolve, reject) => {
     const onError = (error) => {
       if (error.code === 'EADDRINUSE') {

@@ -1,2 +1,4 @@
 node_modules/
 .env
+app.stdout.log
+app.stderr.log
