@@ -11,6 +11,16 @@ const { connectDB } = require('./db');
 const Attendance = require('./models/Attendance');
 const Employee = require('./models/Employee');
 
+// These employees are exported without names by both biometric devices.
+const EMPLOYEE_NAME_OVERRIDES = new Map([
+  ['00000038', 'Diya'],
+  ['00000043', 'Anhadpreet'],
+  ['00000044', 'Rohan'],
+  ['00000045', 'Vikash'],
+  ['00000046', 'Heena'],
+  ['00000047', 'Affreen'],
+]);
+
 function splitRow(line) {
   // Real dumps from these devices are tab-separated; fall back to 2+ spaces if no tabs.
   const cols = line.includes('\t') ? line.split('\t') : line.split(/\s{2,}/);
@@ -49,7 +59,8 @@ function parseDump(filePath) {
     const recordTime = new Date(dateTime.replace(' ', 'T'));
     if (Number.isNaN(recordTime.getTime())) continue;
 
-    if (name && !employees.has(enNo)) employees.set(enNo, name);
+    const employeeName = EMPLOYEE_NAME_OVERRIDES.get(enNo) || name;
+    if (employeeName && !employees.has(enNo)) employees.set(enNo, employeeName);
 
     rows.push({
       deviceUserId: enNo,

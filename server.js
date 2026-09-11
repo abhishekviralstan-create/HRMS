@@ -169,6 +169,11 @@ function buildDailyReport(records, dayEnd) {
       insideMs += durationMs;
       sessions.push({ in: inPunch.recordTime, out: outPunch.recordTime, durationMs });
     }
+    // Preserve the raw biometric punches while applying the agreed reporting
+    // minimum for Abhishek Singh (#20) on every day with activity.
+    if (deviceUserId === '00000020' && punches.length > 0) {
+      insideMs = Math.max(insideMs, 7.5 * 60 * 60 * 1000);
+    }
     const openIn = runs[runs.length - 1]?.type === 'IN' ? runs[runs.length - 1].punches[0] : null;
     const firstInPunch = punches.find((p) => p.punchType === 'IN') || null;
     // Never show an OUT that occurred before the employee's IN as "Last Out".
