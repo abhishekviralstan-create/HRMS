@@ -60,7 +60,7 @@ body{background:#f5f7f8;color:#17212b}.sidebar{display:block;transform:translate
 body[data-sky="morning"] .welcome-hero{background:linear-gradient(160deg,#fff 15%,#f1fcff 100%)}body[data-sky="afternoon"] .welcome-hero{background:linear-gradient(160deg,#fff 12%,#e9f9ff 100%)}body[data-sky="afternoon"] .city:before{background:#ffc928;box-shadow:0 0 0 18px #fff1a8,0 0 0 34px #fff7d3}body[data-sky="evening"] .welcome-hero{background:linear-gradient(145deg,#fff8f3 5%,#ffe5d9 55%,#ddedff 100%)}body[data-sky="evening"] .city:before{background:#ff9254;box-shadow:0 0 0 17px #ffd3a8aa,0 0 0 32px #ffe9ce88}body[data-sky="evening"] .city b{background-color:#6bbcd2}body[data-sky="night"] .welcome-hero{background:linear-gradient(145deg,#172a46,#254d70 58%,#426e89);color:#fff}body[data-sky="night"] .welcome-copy small,body[data-sky="night"] .welcome-copy p{color:#d8edf7}body[data-sky="night"] .city:before{background:#f8f3d6;box-shadow:inset -14px 2px 0 #d8e5ee,0 0 0 14px #eef8ff22,0 0 35px #dff5ff88}body[data-sky="night"] .sky-cloud{background:#b8d3e044;opacity:.55}body[data-sky="night"] .city b{background-color:#285d7d;background-image:repeating-linear-gradient(90deg,transparent 0 14px,#ffe887 14px 18px)}body[data-sky="night"] .city i{background-color:#123f63;background-image:repeating-linear-gradient(90deg,transparent 0 15px,#ffd968 15px 18px)}body[data-sky="night"] .hero-time{background:#102f4aaa;border-color:#6689a2;color:#eaf8ff}body[data-sky="night"] .hero-time:before{background:#ffe275;box-shadow:0 0 0 4px #ffe27522}@media(prefers-reduced-motion:reduce){.sky-cloud,.city:before,.city b,.city i{animation:none!important}}
 </style></head><body>
 
-<aside class="sidebar" id="appSidebar"><div class="sidebrand">AttendCRM<small>WORKFORCE CONTROL</small></div><a class="navitem" data-nav="overview" href="/overview"><span>◫</span>Overview</a><a class="navitem" data-nav="attendance" href="/attendance"><span>⌕</span>Attendance Reports</a><a class="navitem" data-nav="punches" href="/punches"><span>↔</span>Punch Ledger</a><a class="navitem" data-nav="profiles" href="/profiles"><span>▣</span>Employee Profiles</a><a class="navitem" data-nav="employees" href="/employees"><span>♙</span>Employee Management</a><a class="navitem" data-nav="salary" href="/salary"><span>₹</span>Salary Management</a><a class="navitem" data-nav="monthly-attendance" href="/monthly-attendance"><span>◔</span>Monthly Attendance</a></aside><div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="sidebar" id="appSidebar"><div class="sidebrand">AttendCRM<small>WORKFORCE CONTROL</small></div><a class="navitem" data-nav="overview" href="/overview"><span>◫</span>Overview</a><a class="navitem" data-nav="attendance" href="/attendance"><span>⌕</span>Attendance Reports</a><a class="navitem" data-nav="punches" href="/punches"><span>↔</span>Punch Ledger</a><a class="navitem" data-nav="profiles" href="/profiles"><span>▣</span>Employee Profiles</a><a class="navitem" data-nav="employees" href="/employees"><span>♙</span>Employee Management</a><a class="navitem" data-nav="salary" href="/salary"><span>₹</span>Salary Management</a><a class="navitem" data-nav="monthly-attendance" href="/monthly-attendance"><span>◔</span>Monthly Attendance</a><a class="navitem" data-nav="holidays" href="/holidays"><span>◆</span>Holiday List 2026</a></aside><div class="drawer-backdrop" id="drawerBackdrop"></div>
 
 <div class="topbar">
   <div class="brand"><button class="menu-toggle" id="menuToggle" type="button" title="Open menu" aria-label="Open navigation" aria-expanded="false">⠿</button><span class="dot"></span> Attendance System</div>
@@ -151,6 +151,8 @@ body[data-sky="morning"] .welcome-hero{background:linear-gradient(160deg,#fff 15
 <div class="filters" style="margin:20px 0"><label>Month <input id="qMonth" type="month"></label><button onclick="loadMonthlySummary()">Apply</button><span class="qlegend"><span><i class="dot green"></i>≥8h</span><span><i class="dot orange"></i>7:45&ndash;8h</span><span><i class="dot red"></i>&lt;7:45h</span><span><i class="dot absent"></i>Absent day</span></span></div>
 <div class="tablebox"><table><thead><tr><th>Employee</th><th>Department</th><th>Present Days</th><th>Total Hours (Month)</th><th>Avg Hours/Day</th><th>Overall Quality</th></tr></thead><tbody id="qRows"></tbody></table></div>
 </section>
+
+<section class="app-page" data-page="holidays"><h1>Holiday List 2026</h1><div class="muted">Official company holidays for the 2026 calendar year. In dates par attendance report mein employee absent mark nahi hoga.</div><div class="tablebox" style="margin-top:20px"><table><thead><tr><th>#</th><th>Date</th><th>Day</th><th>Holiday / Festival</th></tr></thead><tbody id="holidayRows"></tbody></table></div></section>
 </main>
 <div id="monthlyDetailModal" class="modal"><div class="modalbox"><div class="paneltitle"><h2 id="qDetailTitle">Employee Monthly Report</h2><button class="secondary" onclick="closeMonthlyDetail()">Close</button></div>
 <section class="cards six" id="qDetailCards">
@@ -370,6 +372,7 @@ function deleteEmployee(id){
 
 function qPill(status,label){const labels={green:'≥8h',orange:'7:45-8h',red:'<7:45h',absent:'Absent',future:'—',sunday:'Sunday'};return '<span class="qpill '+status+'">'+esc(label||labels[status]||status)+'</span>'}
 function qHours(minutes){if(!minutes&&minutes!==0)return '-';const h=Math.floor(minutes/60),m=minutes%60;return h+'h '+String(m).padStart(2,'0')+'m'}
+async function loadHolidayList(){const r=await fetch('/api/holidays').then(x=>x.json()),list=r.holidays||[];byId('holidayRows').innerHTML=list.length?list.map((h,i)=>'<tr><td>'+(i+1)+'</td><td>'+new Date(h.date+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})+'</td><td>'+esc(h.day)+'</td><td class="name">'+esc(h.name)+'</td></tr>').join(''):'<tr><td colspan="4" class="empty">No holidays configured.</td></tr>'}
 let monthlySummaryData=[];
 async function loadMonthlySummary(){
   const month=byId('qMonth').value||new Date().toISOString().slice(0,7);
@@ -403,7 +406,7 @@ async function init(){
   byId('date').value=today;byId('from').value=today;byId('to').value=today;byId('punchFrom').value=today;byId('punchTo').value=today;
   byId('qMonth').value=today.slice(0,7);
   await loadEmployees();
-  await Promise.all([loadDashboard(),load(),loadHistory(),loadMonthlySummary()]);
+  await Promise.all([loadDashboard(),load(),loadHistory(),loadMonthlySummary(),loadHolidayList()]);
   setInterval(()=>{loadDashboard();load();loadHistory()},5000);
 }
 async function logout(){await fetch('/api/logout',{method:'POST'});location.href='/login'}

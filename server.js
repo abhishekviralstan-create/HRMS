@@ -37,8 +37,10 @@ const HOLIDAYS_2026 = new Map([
   ['2026-08-15', 'Independence Day'],
   ['2026-08-26', 'Id A Milad (Milad-Un-Nabi)'],
   ['2026-09-04', 'Janmashtami'],
+  ['2026-09-17', 'Vishwakarma Pooja'],
   ['2026-10-02', 'Mahatma Gandhi Jayanthi'],
   ['2026-10-19', 'Saraswathi Pooja/Mahanavami'],
+  ['2026-11-08', 'Diwali'],
   ['2026-12-25', 'Christmas'],
 ]);
 
@@ -347,7 +349,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname.startsWith('/api/')) return json(res, 401, { error: 'Authentication required' });
       return redirect(res, '/login');
     }
-    if (req.method === 'GET' && ['/', '/overview', '/attendance', '/punches', '/employees', '/profiles', '/salary', '/monthly-attendance'].includes(url.pathname)) {
+    if (req.method === 'GET' && ['/', '/overview', '/attendance', '/punches', '/employees', '/profiles', '/salary', '/monthly-attendance', '/holidays'].includes(url.pathname)) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate' });
       return res.end(fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8'));
     }
@@ -360,6 +362,13 @@ const server = http.createServer(async (req, res) => {
       return res.end(fs.readFileSync(path.join(__dirname, 'public', 'live', fileName), 'utf8'));
     }
     if (req.method === 'GET' && url.pathname === '/api/status') return json(res, 200, syncStatus);
+    if (req.method === 'GET' && url.pathname === '/api/holidays') {
+      const holidays = [...HOLIDAYS_2026.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, name]) => {
+        const [year, month, day] = date.split('-').map(Number);
+        return { date, name, day: new Date(year, month - 1, day).toLocaleDateString('en-IN', { weekday: 'long' }) };
+      });
+      return json(res, 200, { year: 2026, holidays });
+    }
     if (req.method === 'GET' && url.pathname === '/api/dashboard') {
       const [totalRecords, inRecords, outRecords, range, attendanceIds, employees, faceRecords, fingerprintRecords, recent, dailyTrend] = await Promise.all([
         Attendance.countDocuments(),
