@@ -170,8 +170,10 @@ function buildDailyReport(records, dayEnd) {
       sessions.push({ in: inPunch.recordTime, out: outPunch.recordTime, durationMs });
     }
     // Preserve the raw biometric punches while applying the agreed reporting
-    // minimum for Abhishek Singh (#20) on every day with activity.
-    if (deviceUserId === '00000020' && punches.length > 0) {
+    // minimum for Abhishek Singh (#20) on regular workdays. Saturday is a
+    // 4 PM closing day, so it must always show the real punch-derived duration.
+    const isSaturday = punches.length > 0 && new Date(punches[0].recordTime).getDay() === 6;
+    if (deviceUserId === '00000020' && punches.length > 0 && !isSaturday) {
       insideMs = Math.max(insideMs, 7.5 * 60 * 60 * 1000);
     }
     const openIn = runs[runs.length - 1]?.type === 'IN' ? runs[runs.length - 1].punches[0] : null;
