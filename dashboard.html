@@ -48,7 +48,7 @@ tr.clickable:hover td{background:#f8faff}
 .profilegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.profileitem{padding:12px;background:#f8fafc;border:1px solid #e5eaf1;border-radius:9px}.profileitem small{display:block;color:#778399;text-transform:uppercase;font-size:10px;letter-spacing:.05em}.profileitem b{display:block;margin-top:4px;word-break:break-word}.sectionlabel{grid-column:1/-1;margin:14px 0 0;color:#3157d5;font-weight:800;border-bottom:1px solid #e5eaf1;padding-bottom:6px}
 .warn{color:#fbbf24}.good{color:#4ade80}
 .qpill{display:inline-block;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:700}
-.qpill.green{background:#e3f9ee;color:#168f62}.qpill.orange{background:#fef3e0;color:#b56a05}.qpill.red{background:#fde8e8;color:#c92a2a}.qpill.absent{background:#f1f3f7;color:#667085}.qpill.future{background:#f8fafc;color:#a0aec0}
+.qpill.green{background:#e3f9ee;color:#168f62}.qpill.orange{background:#fef3e0;color:#b56a05}.qpill.red{background:#fde8e8;color:#c92a2a}.qpill.absent{background:#f1f3f7;color:#667085}.qpill.future{background:#f8fafc;color:#a0aec0}.qpill.holiday,.qpill.sunday{background:#e8f0ff;color:#3157d5}
 .qlegend{display:flex;gap:16px;color:#667085;font-size:12px;flex-wrap:wrap}.qlegend .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.qlegend .dot.green{background:#2aa876}.qlegend .dot.orange{background:#e0a022}.qlegend .dot.red{background:#e0393f}.qlegend .dot.absent{background:#9aa5b8}
 tr.rowclick{cursor:pointer}tr.rowclick:hover td{background:#f8faff}
 .scrolltop{position:fixed;right:24px;bottom:24px;width:46px;height:46px;border:0;border-radius:50%;padding:0;background:#3157d5;color:#fff;font-size:22px;box-shadow:0 8px 24px #203c8a55;z-index:50;opacity:1;visibility:visible;transition:.2s ease}.scrolltop.at-top{opacity:.4;cursor:default;box-shadow:none}.scrolltop:not(.at-top):hover{background:#2448bd;transform:translateY(-2px)}
@@ -250,11 +250,11 @@ async function loadHistory(){
   const r=await fetch('/api/history?'+q).then(x=>x.json());
   historyData=r.records||[];
   const summaries=r.summaries||[];historySummaries=summaries;
-  const matrix=attendanceMatrix(),entries=matrix.rows.flatMap(row=>row.entries),present=entries.filter(e=>e&&!e.absent).length,absent=entries.length-present,totalMs=summaries.reduce((sum,e)=>sum+(e.insideMs||0),0);
+  const matrix=attendanceMatrix(),entries=matrix.rows.flatMap(row=>row.entries),working=entries.filter(e=>!e?.dayLabel),present=working.filter(e=>e&&!e.absent).length,absent=working.length-present,totalMs=summaries.reduce((sum,e)=>sum+(e.insideMs||0),0);
   byId('rangeDays').textContent=matrix.dates.length;byId('presentDays').textContent=present;byId('absentDays').textContent=absent;byId('rangeHours').textContent=duration(totalMs);
   byId('historyCount').textContent='Total '+historyData.length+' records';
   byId('summaryRows').innerHTML=summaries.length?summaries.map(e=>
-    '<tr><td>'+esc(e.date)+'</td><td>'+nameCell(e.employeeName,e.deviceUserId)+'</td><td>'+time(e.firstIn)+'</td><td>'+time(e.lastOut)+'</td><td class="'+(e.absent?'warn':'good')+'">'+(e.absent?'0h 0m':duration(e.insideMs))+'</td><td>'+(e.absent?'—':(e.sessions||[]).map(s=>time(s.in)+' → '+time(s.out)+' ('+duration(s.durationMs)+')').join('<br>')||'Unmatched punch')+'</td><td><span class="pill '+(e.absent?'ABSENT':e.hasIncompletePunch?'INSIDE':'OUTSIDE')+'">'+(e.absent?'ABSENT':e.hasIncompletePunch?'INCOMPLETE':'PRESENT')+'</span></td></tr>'
+    '<tr><td>'+esc(e.date)+'</td><td>'+nameCell(e.employeeName,e.deviceUserId)+'</td><td>'+time(e.firstIn)+'</td><td>'+time(e.lastOut)+'</td><td class="'+(e.absent?'warn':'good')+'">'+(e.dayLabel?esc(e.dayLabel):e.absent?'0h 0m':duration(e.insideMs))+'</td><td>'+(e.dayLabel?esc(e.dayLabel):e.absent?'—':(e.sessions||[]).map(s=>time(s.in)+' → '+time(s.out)+' ('+duration(s.durationMs)+')').join('<br>')||'Unmatched punch')+'</td><td><span class="pill '+(e.dayStatus||e.absent?'ABSENT':e.hasIncompletePunch?'INSIDE':'OUTSIDE')+'">'+(e.dayLabel?esc(e.dayLabel):e.absent?'ABSENT':e.hasIncompletePunch?'INCOMPLETE':'PRESENT')+'</span></td></tr>'
   ).join(''):'<tr><td colspan="7" class="empty">Employee name/ID aur date range select karke search karein.</td></tr>';
   byId('historyRows').innerHTML=historyData.length?historyData.map(p=>{
     const d=new Date(p.recordTime);
@@ -286,7 +286,7 @@ function downloadPunchCsv(){
 function dateRange(from,to){const dates=[];if(!from||!to)return dates;const end=new Date(to+'T00:00:00');for(let day=new Date(from+'T00:00:00');day<=end;day.setDate(day.getDate()+1))dates.push(dateText(day));return dates}
 function attendanceCell(entry){return attendanceHoursCell(entry)}
 function workedHours(ms){const totalMinutes=Math.max(0,Math.floor((ms||0)/60000)),hours=Math.floor(totalMinutes/60),minutes=totalMinutes%60;return hours+'h '+String(minutes).padStart(2,'0')+'m'}
-function attendanceHoursCell(entry){if(!entry||entry.absent)return 'ABSENT';if(!(entry.sessions||[]).length)return 'INCOMPLETE';return workedHours(entry.insideMs)}
+function attendanceHoursCell(entry){if(entry?.dayLabel)return entry.dayLabel;if(!entry||entry.absent)return 'ABSENT';if(!(entry.sessions||[]).length)return 'INCOMPLETE';return workedHours(entry.insideMs)}
 function attendanceMatrix(){
   const dates=dateRange(byId('from').value,byId('to').value),selected=byId('employee').value;
   const source=(selected?employeesData.filter(e=>e.deviceUserId===selected):employeesData).slice();
@@ -368,7 +368,7 @@ function deleteEmployee(id){
   fetch('/api/employees/'+id,{method:'DELETE'}).then(()=>loadEmployees());
 }
 
-function qPill(status){const labels={green:'≥8h',orange:'7:45-8h',red:'<7:45h',absent:'Absent',future:'—'};return '<span class="qpill '+status+'">'+(labels[status]||status)+'</span>'}
+function qPill(status,label){const labels={green:'≥8h',orange:'7:45-8h',red:'<7:45h',absent:'Absent',future:'—',sunday:'Sunday'};return '<span class="qpill '+status+'">'+esc(label||labels[status]||status)+'</span>'}
 function qHours(minutes){if(!minutes&&minutes!==0)return '-';const h=Math.floor(minutes/60),m=minutes%60;return h+'h '+String(m).padStart(2,'0')+'m'}
 let monthlySummaryData=[];
 async function loadMonthlySummary(){
@@ -392,7 +392,7 @@ async function openMonthlyDetail(deviceUserId){
   byId('qOrangeDays').textContent=r.summary.orangeDays;
   byId('qRedDays').textContent=r.summary.redDays+' / '+r.summary.absentDays;
   byId('qDetailRows').innerHTML=r.days.filter(d=>d.status!=='future').map(d=>
-    '<tr><td>'+esc(d.date)+'</td><td>'+time(d.firstIn)+'</td><td>'+time(d.lastOut)+'</td><td>'+(d.sessions||[]).length+'</td><td>'+qHours(d.minutes)+'</td><td>'+qPill(d.status)+'</td></tr>'
+    '<tr><td>'+esc(d.date)+'</td><td>'+time(d.firstIn)+'</td><td>'+time(d.lastOut)+'</td><td>'+(d.sessions||[]).length+'</td><td>'+(d.dayLabel?'—':qHours(d.minutes))+'</td><td>'+qPill(d.status,d.dayLabel)+'</td></tr>'
   ).join('');
   byId('monthlyDetailModal').classList.add('open');
 }

@@ -22,6 +22,34 @@ const loginPassword = String(process.env.LOGIN_PASSWORD || '');
 const sessionTtlMs = Number(process.env.SESSION_TTL_MS || 12 * 60 * 60 * 1000);
 const loginAttempts = new Map();
 
+const HOLIDAYS_2026 = new Map([
+  ['2026-01-01', "New Year's Day"],
+  ['2026-01-15', 'Pongal'],
+  ['2026-01-16', 'Thiruvalluvar Day/Mattu Pongal'],
+  ['2026-01-17', 'Uzhavar Thirunal'],
+  ['2026-01-26', 'Republic Day'],
+  ['2026-03-21', 'Id-Ul-Fittr'],
+  ['2026-04-03', 'Good Friday'],
+  ['2026-04-09', 'Election'],
+  ['2026-04-14', 'Dr. B R Ambedkar Jayanti/ Tamil New Year'],
+  ['2026-05-01', 'May Day'],
+  ['2026-05-28', 'Bakri ID (Id-Uz-Zuha)'],
+  ['2026-08-15', 'Independence Day'],
+  ['2026-08-26', 'Id A Milad (Milad-Un-Nabi)'],
+  ['2026-09-14', 'Ganesh Chaturthi (1st Day)'],
+  ['2026-10-02', 'Mahatma Gandhi Jayanthi'],
+  ['2026-10-19', 'Saraswathi Pooja/Mahanavami'],
+  ['2026-12-25', 'Christmas'],
+]);
+
+function nonWorkingDay(dateKey) {
+  const holidayName = HOLIDAYS_2026.get(dateKey);
+  if (holidayName) return { status: 'holiday', label: holidayName };
+  const [year, month, day] = dateKey.split('-').map(Number);
+  if (new Date(year, month - 1, day).getDay() === 0) return { status: 'sunday', label: 'Sunday' };
+  return null;
+}
+
 function passwordDigest(password, salt) {
   return crypto.scryptSync(String(password), salt, 64).toString('hex');
 }
@@ -262,7 +290,8 @@ function buildRangeSummary(records, fromText, toText, selectedEmployee) {
     const end = new Date(year, month - 1, day + 1);
     const start = new Date(year, month - 1, day);
     const effectiveEnd = now >= start && now < end ? now : end;
-    return buildDailyReport(dayRecords, effectiveEnd).map((entry) => ({ date, ...entry, punches: undefined }));
+    const dayOff = nonWorkingDay(date);
+    return buildDailyReport(dayRecords, effectiveEnd).map((entry) => ({ date, ...entry, punches: undefined, dayStatus: dayOff?.status || null, dayLabel: dayOff?.label || null }));
   });
   if (selectedEmployee) {
     const existing = new Map(result.map((entry) => [entry.date, entry]));
@@ -270,7 +299,10 @@ function buildRangeSummary(records, fromText, toText, selectedEmployee) {
     const [ty, tm, td] = toText.split('-').map(Number);
     for (let cursor = new Date(fy, fm - 1, fd), end = new Date(ty, tm - 1, td); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
       const date = localDateKey(cursor);
-      if (!existing.has(date)) result.push({ date, deviceUserId: selectedEmployee.deviceUserId, employeeName: selectedEmployee.name, absent: true, firstIn: null, lastOut: null, insideMs: 0, punchCount: 0, sessions: [] });
+      if (!existing.has(date)) {
+        const dayOff = nonWorkingDay(date);
+        result.push({ date, deviceUserId: selectedEmployee.deviceUserId, employeeName: selectedEmployee.name, absent: !dayOff, dayStatus: dayOff?.status || null, dayLabel: dayOff?.label || null, firstIn: null, lastOut: null, insideMs: 0, punchCount: 0, sessions: [] });
+      }
     }
   }
   return result.sort((a, b) => b.date.localeCompare(a.date) || a.deviceUserId.localeCompare(b.deviceUserId, undefined, { numeric: true }));
@@ -412,6 +444,7 @@ const server = http.createServer(async (req, res) => {
       for (let day = 1; day <= days; day += 1) {
         const key = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         if (key > todayKey) continue;
+        if (nonWorkingDay(key)) continue;
         const dayEnd = key === todayKey ? now : new Date(year, month - 1, day + 1);
         const report = buildDailyReport(byDate.get(key) || [], dayEnd);
         const seen = new Set();
@@ -461,6 +494,15 @@ const server = http.createServer(async (req, res) => {
         const [entry] = buildDailyReport(byDate.get(key) || [], dayEnd);
         const minutes = entry ? Math.round(entry.insideMs / 60000) : 0;
         const punchCount = entry ? entry.punchCount : 0;
+        const dayOff = nonWorkingDay(key);
+        if (dayOff) {
+          dayList.push({
+            date: key, status: dayOff.status, dayLabel: dayOff.label, minutes, punchCount,
+            firstIn: entry?.firstIn || null, lastOut: entry?.lastOut || null,
+            sessions: entry?.sessions || [], hasIncompletePunch: entry?.hasIncompletePunch || false,
+          });
+          continue;
+        }
         const status = classifyQuality(minutes, punchCount);
         summary.totalMinutes += minutes;
         if (punchCount > 0) summary.presentDays += 1;

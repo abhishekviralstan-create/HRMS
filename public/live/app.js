@@ -20,8 +20,8 @@ function fmtHours(minutes) {
   return `${h}h ${String(m).padStart(2, '0')}m`;
 }
 
-function statusPill(status) {
-  const label = status.charAt(0).toUpperCase() + status.slice(1);
+function statusPill(status, customLabel) {
+  const label = customLabel || status.charAt(0).toUpperCase() + status.slice(1);
   return `<span class="status-pill ${status}">${label}</span>`;
 }
 
@@ -204,8 +204,8 @@ async function loadEmployeeDetail(deviceUserId, month) {
       <td>${fmtTime(d.firstIn)}</td>
       <td>${fmtTime(d.lastOut)}${d.hasIncompletePunch ? ' <span class="muted">(still IN)</span>' : ''}</td>
       <td>${(d.sessions || []).length}</td>
-      <td>${fmtHours(d.minutes)}</td>
-      <td>${statusPill(d.status)}</td>
+      <td>${d.dayLabel ? '—' : fmtHours(d.minutes)}</td>
+      <td>${statusPill(d.status, d.dayLabel)}</td>
     </tr>`).join('') : emptyRow(6, 'No data for this month.');
 }
 
