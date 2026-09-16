@@ -252,7 +252,7 @@ async function loadHistory(){
   const r=await fetch('/api/history?'+q).then(x=>x.json());
   historyData=r.records||[];
   const summaries=r.summaries||[];historySummaries=summaries;
-  const matrix=attendanceMatrix(),entries=matrix.rows.flatMap(row=>row.entries),working=entries.filter(e=>!e?.dayLabel),present=working.filter(e=>e&&!e.absent).length,absent=working.length-present,totalMs=summaries.reduce((sum,e)=>sum+(e.insideMs||0),0);
+  const matrix=attendanceMatrix(),entries=matrix.rows.flatMap(row=>row.entries),present=entries.filter(e=>e&&!e.absent).length,absent=entries.length-present,totalMs=summaries.reduce((sum,e)=>sum+(e.insideMs||0),0);
   byId('rangeDays').textContent=matrix.dates.length;byId('presentDays').textContent=present;byId('absentDays').textContent=absent;byId('rangeHours').textContent=duration(totalMs);
   byId('historyCount').textContent='Total '+historyData.length+' records';
   byId('summaryRows').innerHTML=summaries.length?summaries.map(e=>

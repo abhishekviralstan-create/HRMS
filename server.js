@@ -447,14 +447,17 @@ const server = http.createServer(async (req, res) => {
       for (const employee of employees) {
         perEmployee.set(employee.deviceUserId, {
           deviceUserId: employee.deviceUserId, name: employee.name, department: employee.department || null,
-          designation: employee.designation || null, totalMinutes: 0, presentDays: 0,
+          designation: employee.designation || null, totalMinutes: 0, presentDays: 0, workedDays: 0,
           greenDays: 0, orangeDays: 0, redDays: 0, absentDays: 0,
         });
       }
       for (let day = 1; day <= days; day += 1) {
         const key = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         if (key > todayKey) continue;
-        if (nonWorkingDay(key)) continue;
+        if (nonWorkingDay(key)) {
+          for (const stat of perEmployee.values()) stat.presentDays += 1;
+          continue;
+        }
         const dayEnd = key === todayKey ? now : new Date(year, month - 1, day + 1);
         const report = buildDailyReport(byDate.get(key) || [], dayEnd);
         const seen = new Set();
@@ -464,7 +467,7 @@ const server = http.createServer(async (req, res) => {
           seen.add(entry.deviceUserId);
           const minutes = Math.round(entry.insideMs / 60000);
           stat.totalMinutes += minutes;
-          if (entry.punchCount > 0) stat.presentDays += 1;
+          if (entry.punchCount > 0) { stat.presentDays += 1; stat.workedDays += 1; }
           const quality = classifyQuality(minutes, entry.punchCount);
           if (quality === 'green') stat.greenDays += 1;
           else if (quality === 'orange') stat.orangeDays += 1;
@@ -477,8 +480,8 @@ const server = http.createServer(async (req, res) => {
       }
       const result = [...perEmployee.values()].map((stat) => ({
         ...stat,
-        avgMinutes: stat.presentDays ? Math.round(stat.totalMinutes / stat.presentDays) : 0,
-        overallQuality: classifyQuality(stat.presentDays ? Math.round(stat.totalMinutes / stat.presentDays) : 0, stat.presentDays),
+        avgMinutes: stat.workedDays ? Math.round(stat.totalMinutes / stat.workedDays) : 0,
+        overallQuality: classifyQuality(stat.workedDays ? Math.round(stat.totalMinutes / stat.workedDays) : 0, stat.workedDays),
       }));
       return json(res, 200, { month: monthStr, employees: result });
     }
@@ -496,7 +499,7 @@ const server = http.createServer(async (req, res) => {
       const now = new Date();
       const todayKey = localDateKey(now);
       const dayList = [];
-      const summary = { totalMinutes: 0, presentDays: 0, greenDays: 0, orangeDays: 0, redDays: 0, absentDays: 0 };
+      const summary = { totalMinutes: 0, presentDays: 0, workedDays: 0, greenDays: 0, orangeDays: 0, redDays: 0, absentDays: 0 };
       for (let day = 1; day <= days; day += 1) {
         const key = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         if (key > todayKey) { dayList.push({ date: key, status: 'future', firstIn: null, lastOut: null, minutes: 0, sessions: [] }); continue; }
@@ -506,6 +509,7 @@ const server = http.createServer(async (req, res) => {
         const punchCount = entry ? entry.punchCount : 0;
         const dayOff = nonWorkingDay(key);
         if (dayOff) {
+          summary.presentDays += 1;
           dayList.push({
             date: key, status: dayOff.status, dayLabel: dayOff.label, minutes, punchCount,
             firstIn: entry?.firstIn || null, lastOut: entry?.lastOut || null,
@@ -515,7 +519,7 @@ const server = http.createServer(async (req, res) => {
         }
         const status = classifyQuality(minutes, punchCount);
         summary.totalMinutes += minutes;
-        if (punchCount > 0) summary.presentDays += 1;
+        if (punchCount > 0) { summary.presentDays += 1; summary.workedDays += 1; }
         if (status === 'green') summary.greenDays += 1;
         else if (status === 'orange') summary.orangeDays += 1;
         else if (status === 'red') summary.redDays += 1;
@@ -526,7 +530,7 @@ const server = http.createServer(async (req, res) => {
           sessions: entry?.sessions || [], hasIncompletePunch: entry?.hasIncompletePunch || false,
         });
       }
-      summary.avgMinutes = summary.presentDays ? Math.round(summary.totalMinutes / summary.presentDays) : 0;
+      summary.avgMinutes = summary.workedDays ? Math.round(summary.totalMinutes / summary.workedDays) : 0;
       return json(res, 200, { employee: { deviceUserId: employee.deviceUserId, name: employee.name, department: employee.department || null, designation: employee.designation || null }, month: monthStr, days: dayList, summary });
     }
     if (req.method === 'POST' && url.pathname === '/api/employees') {
