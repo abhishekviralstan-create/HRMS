@@ -3,6 +3,9 @@ const mongoose = require('mongoose');
 const employeeSchema = new mongoose.Schema({
   deviceUserId: { type: String, required: true, unique: true },
   name: { type: String, required: true },
+  firstName: { type: String },
+  middleName: { type: String },
+  lastName: { type: String },
   phone: { type: String },
   alternatePhone: { type: String },
   department: { type: String },
@@ -27,6 +30,8 @@ const employeeSchema = new mongoose.Schema({
   bankBranch: { type: String },
   accountHolder: { type: String },
   aadhaar: { type: String },
+  aadhaarName: { type: String },
+  emergencyContactName: { type: String },
   emergencyPhone: { type: String },
   nationality: { type: String },
   designation: { type: String },
