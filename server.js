@@ -40,6 +40,7 @@ const HOLIDAYS_2026 = new Map([
   ['2026-09-17', 'Vishwakarma Pooja'],
   ['2026-10-02', 'Mahatma Gandhi Jayanthi'],
   ['2026-10-19', 'Saraswathi Pooja/Mahanavami'],
+  ['2026-10-20', 'Dussehra'],
   ['2026-11-08', 'Diwali'],
   ['2026-12-25', 'Christmas'],
 ]);
