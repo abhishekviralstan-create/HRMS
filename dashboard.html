@@ -109,7 +109,7 @@ body[data-sky="morning"] .welcome-hero{background:linear-gradient(160deg,#fff 15
 </section>
 
 <section class="app-page panel" data-page="employees" id="employeeNames"><h1>Employee Management</h1>
-<div class="muted" style="margin-bottom:10px">Unnamed enrollment ID select karke naam assign karein, ya existing employee ka naam edit karein.</div>
+<div class="muted" style="margin-bottom:10px">Select an unnamed enrollment ID to assign a name, or edit an existing employee's name.</div>
 <div class="empform">
   <select id="unnamedId" onchange="if(this.value)byId('empId').value=this.value"><option value="">Select unnamed ID</option></select>
   <input id="empId" placeholder="Device ID (number from machine)">
@@ -122,7 +122,7 @@ body[data-sky="morning"] .welcome-hero{background:linear-gradient(160deg,#fff 15
 </section>
 
 <section class="app-page" data-page="attendance"><section class="panel searchhero" id="employeeSearch"><h1 style="color:#fff">Attendance Reports</h1>
-<div class="muted">Employee ko name ya enrollment ID se search karke har date ke IN/OUT punches, matched sessions aur total working time dekhein.</div>
+<div class="muted">Search by employee name or enrollment ID to view daily IN/OUT punches, matched sessions, and total working time.</div>
 <div class="filters">
   <label>From <input id="from" type="date"></label>
   <label>To <input id="to" type="date"></label>
@@ -135,7 +135,7 @@ body[data-sky="morning"] .welcome-hero{background:linear-gradient(160deg,#fff 15
 <div class="tablebox"><table><thead><tr><th>Date</th><th>Employee / Enrollment ID</th><th>First In</th><th>Last Out</th><th>Total Time Inside</th><th>Matched Sessions</th><th>Attendance</th></tr></thead><tbody id="summaryRows"></tbody></table></div>
 <h2>Attendance Register</h2>
 <div class="tablebox"><table><thead id="matrixHead"></thead><tbody id="matrixRows"></tbody></table></div>
-<div class="note"><b>Night-shift rule:</b> afternoon/night IN ke baad midnight cross karke next day ka OUT usi shift-start date mein count hota hai. Daily total har matched 1515 IN → 1516 OUT session ka sum hai; punch na ho to ABSENT dikhega.</div>
+<div class="note"><b>Night-shift rule:</b> When an afternoon or night shift crosses midnight, the next day's OUT is counted against the shift's start date. The daily total is the sum of every matched 1515 IN → 1516 OUT session; days without a punch are shown as ABSENT.</div>
 </section>
 
 <section class="app-page" data-page="punches"><h1>Punch Ledger</h1><div class="muted">Raw IN/OUT punches with machine and verification evidence.</div><div class="filters"><label>From <input id="punchFrom" type="date"></label><label>To <input id="punchTo" type="date"></label><label>Employee <select id="punchEmployee"><option value="">All employees</option></select></label><button onclick="loadPunchPage()">Show punches</button><button class="secondary" onclick="downloadPunchCsv()">Download Raw Punch CSV</button></div>
@@ -145,14 +145,14 @@ body[data-sky="morning"] .welcome-hero{background:linear-gradient(160deg,#fff 15
 
 <section class="app-page" data-page="salary"><h1>Salary Management</h1><div class="muted">Employee-wise monthly salary, effective date and department management.</div><div class="tablebox" style="margin-top:20px"><table><thead><tr><th>Employee</th><th>Department</th><th>Designation</th><th>Monthly Salary</th><th>Effective From</th><th>Action</th></tr></thead><tbody id="salaryRows"></tbody></table></div></section>
 
-<section class="app-page" data-page="profiles"><h1>Employee Profiles</h1><div class="muted">Employee ka complete HR, contact, employment, bank aur salary record dekhein.</div><div class="filters"><label>Search <input id="profileSearch" placeholder="Name or enrollment ID" oninput="renderProfiles()"></label></div><div class="tablebox"><table><thead><tr><th>Enrollment ID</th><th>Employee</th><th>Department</th><th>Designation</th><th>Phone</th><th>Profile</th></tr></thead><tbody id="profileRows"></tbody></table></div></section>
+<section class="app-page" data-page="profiles"><h1>Employee Profiles</h1><div class="muted">View complete HR, contact, employment, banking, and salary records for each employee.</div><div class="filters"><label>Search <input id="profileSearch" placeholder="Name or enrollment ID" oninput="renderProfiles()"></label></div><div class="tablebox"><table><thead><tr><th>Enrollment ID</th><th>Employee</th><th>Department</th><th>Designation</th><th>Phone</th><th>Profile</th></tr></thead><tbody id="profileRows"></tbody></table></div></section>
 
-<section class="app-page" data-page="monthly-attendance"><h1>Monthly Attendance</h1><div class="muted">Har employee ka monthly working-hours quality &mdash; ≥8h green, 7:45&ndash;8h orange, &lt;7:45h red, punch na ho to absent. Row par click karke day-by-day report dekhein.</div>
+<section class="app-page" data-page="monthly-attendance"><h1>Monthly Attendance</h1><div class="muted">Monthly working-hours quality for every employee &mdash; ≥8h green, 7:45&ndash;8h orange, &lt;7:45h red, and no punch means absent. Click a row to view the day-by-day report.</div>
 <div class="filters" style="margin:20px 0"><label>Month <input id="qMonth" type="month"></label><button onclick="loadMonthlySummary()">Apply</button><span class="qlegend"><span><i class="dot green"></i>≥8h</span><span><i class="dot orange"></i>7:45&ndash;8h</span><span><i class="dot red"></i>&lt;7:45h</span><span><i class="dot absent"></i>Absent day</span></span></div>
 <div class="tablebox"><table><thead><tr><th>Employee</th><th>Department</th><th>Present Days</th><th>Total Hours (Month)</th><th>Avg Hours/Day</th><th>Overall Quality</th></tr></thead><tbody id="qRows"></tbody></table></div>
 </section>
 
-<section class="app-page" data-page="holidays"><h1>Holiday List 2026</h1><div class="muted">Official company holidays for the 2026 calendar year. In dates par attendance report mein employee absent mark nahi hoga.</div><div class="tablebox" style="margin-top:20px"><table><thead><tr><th>#</th><th>Date</th><th>Day</th><th>Holiday / Festival</th></tr></thead><tbody id="holidayRows"></tbody></table></div></section>
+<section class="app-page" data-page="holidays"><h1>Holiday List 2026</h1><div class="muted">Official company holidays for the 2026 calendar year. Employees will not be marked absent on these dates.</div><div class="tablebox" style="margin-top:20px"><table><thead><tr><th>#</th><th>Date</th><th>Day</th><th>Holiday / Festival</th></tr></thead><tbody id="holidayRows"></tbody></table></div></section>
 </main>
 <div id="monthlyDetailModal" class="modal"><div class="modalbox"><div class="paneltitle"><h2 id="qDetailTitle">Employee Monthly Report</h2><button class="secondary" onclick="closeMonthlyDetail()">Close</button></div>
 <section class="cards six" id="qDetailCards">
@@ -246,7 +246,7 @@ async function load(){
 }
 
 async function loadHistory(){
-  if(byId('from').value>byId('to').value)return alert('From date, To date se pehle honi chahiye');
+  if(byId('from').value>byId('to').value)return alert('The From date must be on or before the To date.');
   const q=new URLSearchParams({from:byId('from').value,to:byId('to').value});
   if(byId('employee').value.trim())q.set('employee',byId('employee').value.trim());
   const r=await fetch('/api/history?'+q).then(x=>x.json());
@@ -257,7 +257,7 @@ async function loadHistory(){
   byId('historyCount').textContent='Total '+historyData.length+' records';
   byId('summaryRows').innerHTML=summaries.length?summaries.map(e=>
     '<tr><td>'+esc(e.date)+'</td><td>'+nameCell(e.employeeName,e.deviceUserId)+'</td><td>'+time(e.firstIn)+'</td><td>'+time(e.lastOut)+'</td><td class="'+(e.absent?'warn':'good')+'">'+(e.dayLabel?esc(e.dayLabel):e.absent?'0h 0m':duration(e.insideMs))+'</td><td>'+(e.dayLabel?esc(e.dayLabel):e.absent?'—':(e.sessions||[]).map(s=>time(s.in)+' → '+time(s.out)+' ('+duration(s.durationMs)+')').join('<br>')||'Unmatched punch')+'</td><td><span class="pill '+(e.dayStatus||e.absent?'ABSENT':e.hasIncompletePunch?'INSIDE':'OUTSIDE')+'">'+(e.dayLabel?esc(e.dayLabel):e.absent?'ABSENT':e.hasIncompletePunch?'INCOMPLETE':'PRESENT')+'</span></td></tr>'
-  ).join(''):'<tr><td colspan="7" class="empty">Employee name/ID aur date range select karke search karein.</td></tr>';
+  ).join(''):'<tr><td colspan="7" class="empty">Select an employee name/ID and date range, then search.</td></tr>';
   byId('historyRows').innerHTML=historyData.length?historyData.map(p=>{
     const d=new Date(p.recordTime);
     return '<tr><td>'+d.toLocaleDateString('en-IN')+'</td><td>'+time(p.recordTime)+'</td><td>'+nameCell(p.employeeName,p.deviceUserId)+'</td><td><span class="pill '+esc(p.punchType)+'">'+esc(p.punchType)+'</span></td><td>'+esc(method(p))+'</td><td>'+esc(faceEvidence(p))+'</td><td>'+esc(p.deviceIp)+'</td><td>'+esc(p.raw&&p.raw.transactionId||'—')+'</td></tr>';
@@ -303,7 +303,7 @@ function renderAttendanceMatrix(){
   byId('matrixRows').innerHTML=matrix.rows.length?matrix.rows.map(row=>'<tr><td class="name">'+esc(row.employee.name||row.employee.deviceUserId)+'</td><td>'+esc(row.employee.deviceUserId)+'</td>'+row.entries.map(entry=>'<td class="'+(!entry||entry.absent?'warn':'good')+'">'+esc(attendanceCell(entry))+'</td>').join('')+'</tr>').join(''):'<tr><td class="empty" colspan="'+(matrix.dates.length+2)+'">No employee found.</td></tr>';
 }
 function downloadAttendanceCsv(){
-  const matrix=attendanceMatrix();if(!matrix.rows.length)return alert('Pehle employee/date range select karke Show attendance karein');
+  const matrix=attendanceMatrix();if(!matrix.rows.length)return alert('Select an employee/date range and click Show attendance first.');
   const cell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
   const lines=[['Employee Name','Enrollment ID',...matrix.dates,'Present Days','Grand Total Hours'].map(cell).join(',')];
   matrix.rows.forEach(row=>{const present=row.entries.filter(entry=>entry&&!entry.absent).length,totalMs=row.entries.reduce((sum,entry)=>sum+(entry?.insideMs||0),0);lines.push([row.employee.name||row.employee.deviceUserId,row.employee.deviceUserId,...row.entries.map(attendanceHoursCell),present,workedHours(totalMs)].map(cell).join(','))});
