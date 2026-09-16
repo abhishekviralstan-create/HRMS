@@ -36,7 +36,7 @@ const HOLIDAYS_2026 = new Map([
   ['2026-05-28', 'Bakri ID (Id-Uz-Zuha)'],
   ['2026-08-15', 'Independence Day'],
   ['2026-08-26', 'Id A Milad (Milad-Un-Nabi)'],
-  ['2026-09-14', 'Ganesh Chaturthi (1st Day)'],
+  ['2026-09-04', 'Janmashtami'],
   ['2026-10-02', 'Mahatma Gandhi Jayanthi'],
   ['2026-10-19', 'Saraswathi Pooja/Mahanavami'],
   ['2026-12-25', 'Christmas'],
